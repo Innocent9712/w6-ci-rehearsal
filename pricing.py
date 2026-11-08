@@ -7,6 +7,7 @@ All amounts are in cents (integers), so there are no floating-point rounding sur
 DISCOUNT_CODES = {
     "WELCOME10": 10,
     "SAVE20": 20,
+    "SPRING15": 15,
 }
 
 # Orders worth at least this much (after discounts) ship for free
