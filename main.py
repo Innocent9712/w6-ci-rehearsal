@@ -1,6 +1,7 @@
 """A small shop pricing API: send it a basket, get back the price breakdown."""
 
 import os
+import sys
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
