@@ -1,0 +1,41 @@
+# CI for infrastructure code: check Terraform the way stage 1 checks Python.
+# Copy the infra/ folder to the root of your repository, and this file to .github/workflows/terraform.yml.
+name: Terraform
+
+# Only run when the Terraform code (or this workflow) changes
+on:
+  push:
+    branches: [main]
+    paths: ["infra/**", ".github/workflows/terraform.yml"]
+  pull_request:
+    paths: ["infra/**", ".github/workflows/terraform.yml"]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: infra
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@v7
+
+      - name: Install Terraform
+        uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: "1.17.1"
+
+      # Fails if any file isn't formatted the standard way (fix locally with `terraform fmt`)
+      - name: Check formatting
+        run: terraform fmt -check -recursive
+
+      # -backend=false: download the providers, but don't connect to any remote state
+      - name: Initialise
+        run: terraform init -backend=false
+
+      - name: Validate
+        run: terraform validate

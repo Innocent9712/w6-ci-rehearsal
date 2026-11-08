@@ -1,0 +1,29 @@
+# Stage 1: run the tests on every change.
+# Copy to .github/workflows/ci.yml in your repository.
+name: CI
+
+# When to run: every push to main, and every pull request (opened, or updated with new commits)
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    # A fresh virtual machine from GitHub, thrown away after the job
+    runs-on: ubuntu-latest
+    steps:
+      # The machine starts empty: first, get a copy of the repository
+      - name: Check out the code
+        uses: actions/checkout@v7
+
+      # Install uv. It reads .python-version and installs that Python too
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.3.3
+
+      # --locked: fail if uv.lock doesn't match pyproject.toml, instead of quietly updating it
+      - name: Install dependencies
+        run: uv sync --locked
+
+      - name: Run the tests
+        run: uv run pytest
