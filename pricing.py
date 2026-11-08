@@ -33,7 +33,7 @@ def discount(amount: int, code: str | None) -> int:
 
 def shipping(amount: int) -> int:
     """Shipping is free from the threshold upwards."""
-    if amount > FREE_SHIPPING_THRESHOLD:
+    if amount >= FREE_SHIPPING_THRESHOLD:
         return 0
     return SHIPPING_FEE
 
