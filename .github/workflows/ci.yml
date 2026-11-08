@@ -1,29 +1,65 @@
-# Stage 1: run the tests on every change.
-# Copy to .github/workflows/ci.yml in your repository.
+# Stage 2: lint and test as two jobs that run in parallel, and keep the test report.
+# Copy over .github/workflows/ci.yml in your repository.
 name: CI
 
-# When to run: every push to main, and every pull request (opened, or updated with new commits)
 on:
   push:
     branches: [main]
   pull_request:
 
+# The workflow only needs to read the code. Without this, it gets the repository's default permissions
+permissions:
+  contents: read
+
+# A new push to the same branch cancels the run that's still going for the old commit
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  test:
-    # A fresh virtual machine from GitHub, thrown away after the job
+  lint:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
-      # The machine starts empty: first, get a copy of the repository
       - name: Check out the code
         uses: actions/checkout@v7
 
-      # Install uv. It reads .python-version and installs that Python too
       - name: Install uv
         uses: astral-sh/setup-uv@v10.3.3
 
-      # --locked: fail if uv.lock doesn't match pyproject.toml, instead of quietly updating it
       - name: Install dependencies
         run: uv sync --locked
 
+      # Code problems: unused imports, undefined names, likely bugs
+      - name: Lint
+        run: uv run ruff check .
+
+      # Formatting: fails if any file isn't formatted the standard way
+      - name: Check formatting
+        run: uv run ruff format --check .
+
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.3.3
+
+      - name: Install dependencies
+        run: uv sync --locked
+
+      # Also write the results to a file that other tools can read (JUnit XML)
       - name: Run the tests
-        run: uv run pytest
+        run: uv run pytest --junitxml=test-results.xml
+
+      # Keep the report even when tests fail (that's when you want it most)
+      - name: Upload the test report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-results
+          path: test-results.xml
+          retention-days: 7
