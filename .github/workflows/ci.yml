@@ -1,94 +1,66 @@
-# Stage 3: once lint and tests pass, build the Docker image and check that it starts.
-# Copy over .github/workflows/ci.yml in your repository.
+# A simulated CI pipeline: every step only prints what a real pipeline would do.
+# Copy this file to .github/workflows/ci.yml in a GitHub repository.
 name: CI
 
+# Triggers: what starts the pipeline
 on:
   push:
     branches: [main]
   pull_request:
-
-permissions:
-  contents: read
-
-concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  # Adds a "Run workflow" button in the Actions tab, with a switch to make the tests fail
+  workflow_dispatch:
+    inputs:
+      fail_tests:
+        description: "Make the test job fail"
+        type: boolean
+        default: false
 
 jobs:
+  # lint and test have no `needs`, so they run at the same time, each on its own machine
   lint:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
     steps:
       - name: Check out the code
         uses: actions/checkout@v7
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@v10.3.3
-
-      - name: Install dependencies
-        run: uv sync --locked
-
       - name: Lint
-        run: uv run ruff check .
-
-      - name: Check formatting
-        run: uv run ruff format --check .
+        run: |
+          echo "Checking the code style in the repository:"
+          ls -la
+          sleep 3
+          echo "No problems found"
 
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
     steps:
       - name: Check out the code
         uses: actions/checkout@v7
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@v10.3.3
-
-      - name: Install dependencies
-        run: uv sync --locked
+      - name: Show where this is running
+        run: |
+          echo "Event:    ${{ github.event_name }}"
+          echo "Branch:   ${{ github.ref_name }}"
+          echo "Commit:   ${{ github.sha }}"
+          echo "Started by: ${{ github.actor }}"
+          echo "Machine:  $(uname -a)"
 
       - name: Run the tests
-        run: uv run pytest --junitxml=test-results.xml
-
-      - name: Upload the test report
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: test-results
-          path: test-results.xml
-          retention-days: 7
+        run: |
+          echo "Running 12 tests..."
+          sleep 5
+          if [ "${{ inputs.fail_tests }}" = "true" ]; then
+            echo "FAILED: test_checkout_total - expected 4100, got 4600"
+            exit 1
+          fi
+          echo "12 passed"
 
   build:
-    # Only start once BOTH lint and test have passed
+    # Waits for lint and test, and is skipped if either fails
     needs: [lint, test]
     runs-on: ubuntu-latest
-    timeout-minutes: 15
     steps:
-      # Buildx is Docker's build engine. Setting it up enables the build cache below
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
-
-      # Builds straight from this commit in the repository, so no checkout step is needed.
-      # load: true keeps the image on this machine so the next step can run it.
-      # It is NOT pushed to a registry: publishing images is part of delivery (Week 7).
       - name: Build the image
-        uses: docker/build-push-action@v7
-        with:
-          load: true
-          tags: shop-api:${{ github.sha }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      # Start the container and ask it for /health: proves the image actually runs
-      - name: Smoke test the image
         run: |
-          docker run -d --name shop-api -p 8000:8000 -e APP_VERSION=${{ github.sha }} shop-api:${{ github.sha }}
-          for _ in $(seq 1 15); do
-            if curl -fsS http://localhost:8000/health; then
-              exit 0
-            fi
-            sleep 1
-          done
-          echo "The app didn't answer on /health. Its logs:"
-          docker logs shop-api
-          exit 1
+          echo "docker build -t my-app:${{ github.sha }} ."
+          sleep 3
+          echo "Image built (simulated). Pushing and deploying it is Week 7."
